@@ -7,6 +7,11 @@ A research project in CityUHK. Mro Prediction with LightGBM.
 conda create -n mro python=3.11.11
 ```
 
+## Export the Tmux Log
+
+```shell
+tmux capture-pane -t MRO4month -pS -10000 > ./log/mro_output.log
+```
 
 1. data_preprocess.ipynb: add GIS information to the original data, preprocess it, and aggregate into weekly level
 2. weekly_filter_new_2.csv: weekly level data, remove brake, tire, filter
