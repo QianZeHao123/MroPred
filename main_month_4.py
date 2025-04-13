@@ -85,9 +85,9 @@ for i in range(1, time_window + 1):
     monthly_level_mean[f"day_mileage_{i}"] = monthly_level_mean.groupby("id")[
         "day_mileage"
     ].transform(lambda x: x.shift(i))
-    monthly_level_mean[f"tavg_{i}"] = monthly_level_mean.groupby("id")["tavg"].transform(
-        lambda x: x.shift(i)
-    )
+    monthly_level_mean[f"tavg_{i}"] = monthly_level_mean.groupby("id")[
+        "tavg"
+    ].transform(lambda x: x.shift(i))
     monthly_level_mean[f"random_avg_traffic_{i}"] = monthly_level_mean.groupby("id")[
         "random_avg_traffic"
     ].transform(lambda x: x.shift(i))
@@ -160,6 +160,7 @@ def objective(trial):
         "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
         "device_type": "gpu",
         "gpu_platform_id": 0,
+        # gpu device id stands for the GPU device to be used.
         "gpu_device_id": 2,
         "verbose": -1,
     }
