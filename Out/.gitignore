@@ -1,0 +1,5 @@
+# do not upload the model files, it is txt files
+*.txt
+# do not upload the decision tree visualization results
+*.svg
+*.pdf
