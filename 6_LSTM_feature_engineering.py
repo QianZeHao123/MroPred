@@ -1,20 +1,22 @@
 import pandas as pd
-from torch import optim
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+import torch
 import numpy as np
-from sklearn.model_selection import train_test_split
-import pandas as pd
 import pandas as pd
 import torch
-from typing import List
-import cupy as cp
-import pandas as pd
-from torch.utils.data import Dataset
-from pandas.api.typing import DataFrameGroupBy
-from torch.utils.data import Dataset, DataLoader
-from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import DataLoader
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from torch import optim
+import torch.nn as nn
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from sklearn.metrics import (
+    f1_score,
+    accuracy_score,
+    recall_score,
+    precision_score,
+)
+from rich.console import Console
+from rich.markdown import Markdown
 
 
 try:
@@ -22,15 +24,8 @@ try:
     import cupy.cuda.runtime as runtime
 
     # get the num of GPUs
-    n_gpus = cp.cuda.runtime.getDeviceCount()
+    n_gpus = runtime.getDeviceCount()
     print(f"Detected {n_gpus} GPU(s):")
-    # print the info of GPUs
-    for i in range(n_gpus):
-        device = cp.cuda.Device(i)
-        attrs = runtime.getDeviceProperties(i)
-        print(
-            f"GPU {i}: {attrs['name'].decode()} with {attrs['totalGlobalMem'] // (1024**3)} GB memory"
-        )
     cupy_gpu_id = 7
     cp.cuda.Device(cupy_gpu_id).use()
     print(f"Using GPU {cupy_gpu_id}")
@@ -39,6 +34,45 @@ except ImportError:
     print("CuPy is not available, falling back to NumPy.")
     using_cupy = False
     cp = np  # rename cupy to np for compatibility
+
+
+from utils import create_train_test_group
+from utils import mroRnnDataset
+from utils import collate_fn
+
+
+# Check if CUDA (NVIDIA GPU) is available
+if torch.cuda.is_available():
+    # Get the number of available CUDA devices
+    num_gpus = torch.cuda.device_count()
+    print(f"Number of CUDA devices available: {num_gpus}")
+
+    # Select a specific GPU (e.g., GPU 0)
+    device = torch.device("cuda:8")  # Use "cuda:1" for GPU 1, etc.
+    print(f"Using device: {torch.cuda.get_device_name(device)}")
+
+else:
+    device = "cpu"
+    print("CUDA is not available, using CPU")
+
+print(f"Using {device} device")
+
+
+sample_frac = 0.1
+test_size = 0.1
+max_seq_length = 50
+batch_size = 2048
+num_workers = 16
+rnn_output_size = 16
+learning_rate = 0.001
+num_epochs = 1000
+
+
+best_val_loss = float("inf")
+counter = 0
+model_save_folder = "./Out"
+model_name = "Apr_28_LSTM_feature_eng"
+patience = 20
 
 
 file_name = "./Data/mro_daily_clean.csv"
@@ -101,46 +135,16 @@ for i, col in enumerate(column_need_encode):
 data[column_after_encode_std] = scaler.fit_transform(data[column_after_encode])
 
 
-def create_train_test_group(
-    data: pd.DataFrame,
-    id_column: str = "id",
-    test_size: float = 0.8,
-    random_state: int = 42,
-) -> pd.DataFrame:
-    """
-    Adds a 'group' column to the DataFrame, assigning 'train' or 'test' based on a train/test split of unique IDs.
-    This function is optimized for speed using numpy and vectorized operations.
-
-    Args:
-        data (pd.DataFrame): The input DataFrame.
-        id_column (str): The name of the column containing unique IDs. Defaults to "id".
-        test_size (float): The proportion of unique IDs to include in the test set. Defaults to 0.1.
-        random_state (int): The random state for the train/test split. Defaults to 42.
-
-    Returns:
-        pd.DataFrame: The DataFrame with the added 'group' column.
-    """
-    unique_ids = data[id_column].unique()
-    train_ids, test_ids = train_test_split(
-        unique_ids, test_size=test_size, random_state=random_state
-    )
-
-    # Convert test_ids to a set for faster membership checking
-    test_ids_set = set(test_ids)
-
-    # Use numpy's vectorized apply for faster group assignment
-    data["group"] = np.where(data[id_column].isin(test_ids_set), "test", "train")
-
-    return data
-
-
 # Example usage (assuming 'data', 'column_after_std', and 'column_after_encode_std' are already defined):
 col_rnn_origin = ["id"] + column_after_std + column_after_encode_std + ["mro"]
+
 data_rnn_origin = data[
     col_rnn_origin
 ].copy()  # Create a copy to avoid modifying the original DataFrame
 
-data_rnn_origin = create_train_test_group(data_rnn_origin)
+data_rnn_origin = create_train_test_group(
+    data_rnn_origin, sample_frac=sample_frac, test_size=test_size
+)
 
 
 rnn_features = [
@@ -161,140 +165,39 @@ rnn_features = [
 rnn_target = ["mro"]
 
 
-def prepare_data(
-    data_rnn_origin: pd.DataFrame,
-    rnn_features: list,
-    rnn_target: list,
-    group: str = "train",
-):
-    """Converts DataFrame to Tensor and groups by ID (accelerated with CuPy, handles string IDs)."""
+train_data_set = mroRnnDataset(
+    data_rnn_origin=data_rnn_origin,
+    rnn_features=rnn_features,
+    rnn_target=rnn_target,
+    group="train",
+    max_seq_length=max_seq_length,
+)
 
-    # 1. Filter data for the specified group (vectorized)
-    data: pd.DataFrame = data_rnn_origin[data_rnn_origin["group"] == group]
-
-    # 2. Get all unique IDs (vectorized)
-    ids = data["id"].unique()
-
-    # 3. Create a dictionary to store the results
-    processed_data = {}
-
-    # 4. Convert to NumPy/CuPy array (one-time conversion)
-    features_data = data[rnn_features].values
-    target_data = data[rnn_target].values
-    id_data = data["id"].values
-
-    # Use a dictionary to map string IDs to integers
-    unique_ids = np.unique(id_data)
-    id_to_index = {id_val: idx for idx, id_val in enumerate(unique_ids)}
-    indexed_id_data = np.array(
-        [id_to_index[id_val] for id_val in id_data], dtype=np.int64
-    )
-
-    if using_cupy:
-        features_data = cp.asarray(features_data)
-        target_data = cp.asarray(target_data)
-        indexed_id_data = cp.asarray(indexed_id_data)
-
-    # 5. Loop through IDs (still needed, but operations inside the loop are optimized)
-    for id_val in ids:
-        # Find the indices corresponding to this ID (vectorized)
-        # Use the mapped integer ID
-        indexed_id_val = id_to_index[id_val]
-        indices = cp.where(indexed_id_data == indexed_id_val)[0]
-
-        # Extract data using indices (avoid Pandas operations)
-        features = features_data[indices]
-        target = target_data[indices]
-
-        # Convert to Tensor (on CPU)
-        features_tensor = torch.tensor(cp.asnumpy(features), dtype=torch.float32)
-        target_tensor = torch.tensor(cp.asnumpy(target), dtype=torch.float32)
-
-        # Store in the dictionary
-        processed_data[id_val] = (features_tensor, target_tensor)
-        # time_window = 10
-        # current_idx = 0
-        # selected_id = None
-        # current_group_len = len(features_tensor)
-    return processed_data
+test_data_set = mroRnnDataset(
+    data_rnn_origin=data_rnn_origin,
+    rnn_features=rnn_features,
+    rnn_target=rnn_target,
+    group="test",
+    max_seq_length=max_seq_length,
+)
 
 
-train_data = prepare_data(data_rnn_origin, rnn_features, rnn_target, "train")
-# test_data = prepare_data(data_rnn_origin, rnn_features, rnn_target, "test")
-
-
-class mroRnnDataset(Dataset):
-
-    def __init__(
-        self,
-        data: dict,
-        max_seq_length: int = 10,
-    ):
-        self.data = data
-        self.max_seq_length = max_seq_length
-        self.ids = list(data.keys())
-
-    def __len__(self):
-        count = 0
-        for id in self.ids:
-            features, targets = self.data[id]
-            count += len(features)
-        return count
-
-    def __getitem__(self, idx):
-        current_idx = 0
-        pos = None
-
-        for id in self.ids:
-            features, targets = self.data[id]
-            group_len = len(features)
-            if idx < current_idx + group_len:
-                selected_id = id
-                pos = idx - current_idx
-                break
-            current_idx += group_len
-
-        features = features[: pos + 1, :]
-        targets = targets[: pos + 1]
-
-        if len(features) > self.max_seq_length:
-            features = features[-self.max_seq_length :]
-            targets = targets[-self.max_seq_length :]
-
-        return features, targets
-
-
-train_data_set = mroRnnDataset(train_data, max_seq_length=10)
-
-
-def collate_fn(batch):
-    """
-    use collate_fn to pad sequences to the same length within a batch
-    """
-    # batch is a list of (sequence, target) pairs
-    sequences, targets = zip(*batch)
-
-    # use pad_sequence to pad sequences to the same length
-    padded_sequences = pad_sequence(
-        sequences, batch_first=True, padding_value=0.0, padding_side="left"
-    )
-    padded_targets = pad_sequence(
-        targets, batch_first=True, padding_value=0.0, padding_side="left"
-    )
-    lengths = torch.tensor(
-        [len(seq) for seq in sequences]
-    )  # get the original length of each sequence
-    return padded_sequences, padded_targets, lengths
-
-
-batch_size = 2048  # Example batch size
+# Example batch size
 
 train_dataloader = DataLoader(
     train_data_set,
     batch_size=batch_size,
     shuffle=True,
     collate_fn=collate_fn,
-    num_workers=16,
+    num_workers=num_workers,
+)
+
+test_dataloader = DataLoader(
+    test_data_set,
+    batch_size=batch_size,
+    shuffle=False,
+    collate_fn=collate_fn,
+    num_workers=num_workers,
 )
 
 
@@ -315,7 +218,11 @@ class RnnModel(nn.Module):
                 num_layers=1,
                 batch_first=True,
             )
-        self.fc = nn.Sequential(nn.Linear(rnn_output_size, output_size), nn.Sigmoid())
+        # self.fc = nn.Sequential(
+        #     nn.Linear(rnn_output_size, output_size),
+        #     nn.Sigmoid()
+        # )
+        self.fc = nn.Linear(rnn_output_size, output_size)
 
     def forward(self, x, length: int):
         # x  (batch_size, seq_len, input_size)
@@ -329,25 +236,7 @@ class RnnModel(nn.Module):
         return model_out
 
 
-# Check if CUDA (NVIDIA GPU) is available
-if torch.cuda.is_available():
-    # Get the number of available CUDA devices
-    num_gpus = torch.cuda.device_count()
-    print(f"Number of CUDA devices available: {num_gpus}")
-
-    # Select a specific GPU (e.g., GPU 0)
-    device = torch.device("cuda:8")  # Use "cuda:1" for GPU 1, etc.
-    print(f"Using device: {torch.cuda.get_device_name(device)}")
-
-else:
-    device = "cpu"
-    print("CUDA is not available, using CPU")
-
-print(f"Using {device} device")
-
-
 input_feature_size = len(rnn_features)
-rnn_output_size = 16
 output_size = len(rnn_target)
 
 model = RnnModel(
@@ -360,18 +249,31 @@ model = RnnModel(
 print(model)
 
 
-criterion = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+pos_weight_value = (data_rnn_origin["mro"] == 0).sum() / (
+    data_rnn_origin["mro"] == 1
+).sum()
+print(f"pos_weight: {pos_weight_value}")
 
 
-num_epochs = 1000
+# criterion = nn.BCELoss()
+criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight_value])).to(device)
+# criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+
+console = Console()
+console.print(Markdown("# MRO Model Training"))
+console.print(Markdown("## LSTM Daily Level Training"))
+
+
 for epoch in range(num_epochs):
+    console.print(Markdown("---"))
     running_loss = 0.0
     print(f"Epoch {epoch}")
     model.train()
+    all_train_mro_preds = []
+    all_train_mro_targets = []
     for train_inputs, train_targets, train_lengths in train_dataloader:
-
-        print("Add new batch of data!")
 
         optimizer.zero_grad()
         train_inputs = train_inputs.to(device)
@@ -383,7 +285,64 @@ for epoch in range(num_epochs):
         loss = criterion(model_out[:, -1, :], train_targets[:, -1, :])
         loss.backward()
         optimizer.step()
-
         running_loss += loss.item()
+
+        mro_pred = torch.sigmoid(model_out[:, -1, :])
+        mro_preds = (mro_pred > 0.5).int().cpu().numpy().flatten()
+        mro_targets = train_targets[:, -1, :].cpu().numpy().flatten()
+
+        all_train_mro_preds.extend(mro_preds)
+        all_train_mro_targets.extend(mro_targets)
+
     average_loss = running_loss / len(train_dataloader)
     print(f"Average training loss: {average_loss}")
+
+    train_f1 = f1_score(all_train_mro_targets, all_train_mro_preds)
+    print(f"Training F1 Score: {train_f1}")
+    train_accuracy = accuracy_score(all_train_mro_targets, all_train_mro_preds)
+    print(f"Training Accuracy: {train_accuracy}")
+    train_recall = recall_score(all_train_mro_targets, all_train_mro_preds)
+    print(f"Training Recall: {train_recall}")
+    train_precision = precision_score(all_train_mro_targets, all_train_mro_preds)
+    print(f"Training Precision: {train_precision}")
+
+    # Validation loop
+    model.eval()
+    val_loss = 0.0
+    all_val_mro_preds = []
+    all_val_mro_targets = []
+    with torch.no_grad():
+        for val_inputs, val_targets, test_lengths in test_dataloader:
+            val_inputs = val_inputs.to(device)
+            val_targets = val_targets.to(device)
+            model_out = model(val_inputs, test_lengths)
+            loss = criterion(model_out[:, -1, :], val_targets[:, -1, :])
+
+            val_loss += loss.item()
+            mro_pred = torch.sigmoid(model_out[:, -1, :])
+            mro_preds = (mro_pred > 0.5).int().cpu().numpy().flatten()
+            mro_targets = val_targets[:, -1, :].cpu().numpy().flatten()
+
+            all_val_mro_preds.extend(mro_preds)
+            all_val_mro_targets.extend(mro_targets)
+
+        average_val_loss = val_loss / len(test_dataloader)
+        print(f"Validation Loss: {average_loss}")
+        val_f1 = f1_score(all_val_mro_targets, all_val_mro_preds)
+        print(f"Validation F1 Score: {val_f1}")
+        val_accuracy = accuracy_score(all_val_mro_targets, all_val_mro_preds)
+        print(f"Validation Accuracy: {val_accuracy}")
+        val_recall = recall_score(all_val_mro_targets, all_val_mro_preds)
+        print(f"Validation Recall: {val_recall}")
+        val_precision = precision_score(all_val_mro_targets, all_val_mro_preds)
+        print(f"Validation Precision: {val_precision}")
+    if average_val_loss < best_val_loss:
+        best_val_loss = average_val_loss
+        counter = 0
+        # torchscript_model = torch.jit.script(model)
+        # torchscript_model.save(model_save_folder + f"/{model_name}_torchscript.pt")
+    else:
+        counter += 1
+        if counter >= patience:
+            print("Early stopping!")
+            break
