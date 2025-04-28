@@ -24,3 +24,19 @@ preprocess_for_classification.ipynb: reshape 'weekly_filter_new_2.csv' -> '8week
 mro_prediction_lightGBM.ipynb: script for LightGBM
 
 in the classification/imbalance folder: paper + code
+
+```shell
+tmux new -t MRO_LSTM
+```
+
+```shell
+tmux a -t MRO_LSTM
+```
+
+```shell
+source .bashrc
+conda activate mro
+cd /home/user14/Cyber/MroPred
+ls -la
+python 6_LSTM_feature_engineering.py
+```
