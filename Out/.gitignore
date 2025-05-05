@@ -3,3 +3,6 @@
 # do not upload the decision tree visualization results
 *.svg
 *.pdf
+training_log_*.csv
+best_model_*.pth
+best_model_*.pt
