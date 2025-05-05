@@ -40,3 +40,15 @@ cd /home/user14/Cyber/MroPred
 ls -la
 python 6_LSTM_feature_engineering.py
 ```
+
+```shell
+tmux a -t MRO_LSTM_adv
+```
+
+```shell
+source .bashrc
+conda activate mro
+cd /home/user14/Cyber/MroPred
+ls -la
+python main_LSTM_feature_engineering_v3.py
+```
