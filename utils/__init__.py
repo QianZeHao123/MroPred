@@ -7,6 +7,6 @@ from .rnn_collate_function import collate_fn
 __all__ = [
     evaluate_model,
     create_train_test_group,
-    mroRnnDataset,
     collate_fn,
+    mroRnnDataset,
 ]
