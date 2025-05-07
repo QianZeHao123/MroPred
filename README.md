@@ -1,17 +1,5 @@
 # MroPred
-A research project in CityUHK. Mro Prediction with LightGBM.
-
-## Environment Setup
-
-```bash
-conda create -n mro python=3.11.11
-```
-
-## Export the Tmux Log
-
-```shell
-tmux capture-pane -t MRO4month -pS -10000 > ./log/mro_output.log
-```
+A research project in CityUHK. Mro Prediction with LightGBM, LSTM.
 
 1. data_preprocess.ipynb: add GIS information to the original data, preprocess it, and aggregate into weekly level
 2. weekly_filter_new_2.csv: weekly level data, remove brake, tire, filter
@@ -25,12 +13,23 @@ mro_prediction_lightGBM.ipynb: script for LightGBM
 
 in the classification/imbalance folder: paper + code
 
+
+## Environment Setup
+
+```bash
+conda create -n mro python=3.11.11
+pip install -r requirements.txt
+conda activate mro
+```
+
+## Run the code with Tmux
+
 ```shell
-tmux new -t MRO_LSTM
+tmux new -t <tmux session name>
 ```
 
 ```shell
-tmux a -t MRO_LSTM
+tmux a -t <tmux session name>
 ```
 
 ```shell
@@ -38,17 +37,17 @@ source .bashrc
 conda activate mro
 cd /home/user14/Cyber/MroPred
 ls -la
-python 6_LSTM_feature_engineering.py
+python <python script>.py
 ```
 
-```shell
-tmux a -t MRO_LSTM_adv
-```
+## Export the Tmux Log
 
 ```shell
-source .bashrc
-conda activate mro
-cd /home/user14/Cyber/MroPred
-ls -la
-python main_LSTM_feature_engineering_v3.py
+tmux capture-pane -t <tmux session name> -pS -100000 > ./log/<log file name>.log
+```
+
+## Show Optuna Result
+
+```shell
+optuna-dashboard sqlite:///mro_lstm.db
 ```
