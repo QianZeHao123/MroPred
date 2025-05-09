@@ -24,6 +24,12 @@ class RnnModel(nn.Module):
         self.pooling_method = pooling_method
         self.use_last_hidden = use_last_hidden
 
+        #  adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1
+        if num_layers > 1:
+            drop_out = 0.5
+        else:
+            drop_out = 0
+
         if rnn_type == "LSTM":
             self.rnn = nn.LSTM(
                 input_size=input_size,
@@ -31,7 +37,7 @@ class RnnModel(nn.Module):
                 num_layers=num_layers,
                 batch_first=True,
                 bidirectional=bidirectional,
-                dropout=0.5,
+                dropout=drop_out,
             )
         elif rnn_type == "GRU":
             self.rnn = nn.GRU(
@@ -40,7 +46,7 @@ class RnnModel(nn.Module):
                 num_layers=num_layers,
                 batch_first=True,
                 bidirectional=bidirectional,
-                dropout=0.5,
+                dropout=drop_out,
             )
         else:
             raise ValueError(f"Unsupported rnn_type: {rnn_type}")
