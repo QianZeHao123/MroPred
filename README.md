@@ -24,6 +24,8 @@ conda activate mro
 
 ## Run the code with Tmux
 
+### Run the Batch Train
+
 ```shell
 tmux new -t <tmux session name>
 ```
@@ -40,7 +42,7 @@ ls -la
 python <python script>.py
 ```
 
-## Export the Tmux Log
+### Export the Tmux Log
 
 ```shell
 tmux capture-pane -t <tmux session name> -pS -100000 > ./log/<log file name>.log
