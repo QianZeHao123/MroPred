@@ -16,8 +16,13 @@ def collate_fn(batch):
     padded_targets = pad_sequence(
         targets, batch_first=True, padding_value=0.0, padding_side="left"
     )
+    # lengths = torch.tensor(
+    #     [(len(seq) - 1) for seq in sequences]
+    """
+    we use time <= (t-1)'s features to predict time = t's target
+    """
     lengths = torch.tensor(
-        [len(seq) for seq in sequences]
+        [(len(seq)-1) for seq in sequences]
         # [seq.shape[0] for seq in sequences]
     )  # get the original length of each sequence
     return padded_sequences, padded_targets, lengths
