@@ -24,7 +24,8 @@ class mroRnnDataset(Dataset):
         total_length = 0
         for id in self.ids:
             features, _ = self.data[id]
-            total_length += len(features)
+            # total_length += len(features)
+            total_length += len(features) - 1
             self.cumulative_lengths.append(total_length)
         self.total_length = total_length
 
@@ -34,7 +35,8 @@ class mroRnnDataset(Dataset):
     def __getitem__(self, idx):
         data_idx = bisect.bisect_right(self.cumulative_lengths, idx)
         if data_idx == 0:
-            pos = idx
+            # pos = idx
+            pos = idx + 1
         else:
             pos = idx - self.cumulative_lengths[data_idx - 1]
         id = self.ids[data_idx]
@@ -77,6 +79,10 @@ class mroRnnDataset(Dataset):
 
         processed_data = {}
         for id_val, feat, targ in zip(unique_ids, split_features, split_targets):
+            # if len(feat) > 2:
+            #     features_tensor = torch.tensor(feat, dtype=torch.float32)
+            #     target_tensor = torch.tensor(targ, dtype=torch.float32)
+            #     processed_data[id_val] = (features_tensor, target_tensor)
             features_tensor = torch.tensor(feat, dtype=torch.float32)
             target_tensor = torch.tensor(targ, dtype=torch.float32)
             processed_data[id_val] = (features_tensor, target_tensor)
