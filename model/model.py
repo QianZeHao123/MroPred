@@ -75,6 +75,7 @@ class RnnModel(nn.Module):
     def forward(self, x, length: torch.Tensor):
         # x (batch_size, seq_len, input_size)
         # use pack_padded_sequence and pad_packed_sequence to deal with different length of x input
+        length = length.to("cpu")
         packed_x = pack_padded_sequence(
             x, length, batch_first=True, enforce_sorted=False
         )
@@ -90,14 +91,11 @@ class RnnModel(nn.Module):
             else:
                 # use the average to of all outputs
                 pooled = rnn_out.mean(dim=1)  # (B, H)
+
         elif self.pooling_method in ["max", "avg"]:
             pooled = self.pool(rnn_out.transpose(1, 2)).squeeze(2)
+
         elif self.pooling_method in ["attention", "multihead_attention"]:
-            # if self.pooling_method == "multihead_attention":
-            #     attn_out, _ = self.attn(rnn_out, rnn_out, rnn_out)
-            #     pooled = attn_out.mean(dim=1)
-            # else:
-            #     pooled = self.attn(rnn_out)
             attn_output, _ = self.attn(rnn_out, rnn_out, rnn_out)
             pooled = attn_output.mean(dim=1)
         else:
