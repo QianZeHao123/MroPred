@@ -7,3 +7,5 @@ training_log_*.csv
 best_model_*.pth
 best_model_*.pt
 best_experiments_log.csv
+2025*
+experiment_metrics.csv
