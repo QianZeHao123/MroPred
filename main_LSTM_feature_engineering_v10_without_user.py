@@ -355,10 +355,10 @@ for epoch in range(num_epochs):
     all_val_mro_targets = []
     all_val_mro_scores = []
     with torch.no_grad():
-        for val_inputs, val_targets, test_lengths in test_dataloader:
+        for val_inputs, val_targets, val_lengths in test_dataloader:
             val_inputs = val_inputs.to(device)
             val_targets = val_targets.to(device)
-            model_out = model(val_inputs, test_lengths)
+            model_out = model(val_inputs, val_lengths)
             loss = criterion(model_out, val_targets[:, -1, :])
 
             val_loss += loss.item()
