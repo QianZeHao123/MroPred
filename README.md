@@ -38,7 +38,6 @@ tmux a -t <tmux session name>
 source .bashrc
 conda activate mro
 cd /home/user14/Cyber/MroPred
-ls -la
 python <python script>.py
 ```
 
