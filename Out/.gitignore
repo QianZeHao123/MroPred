@@ -10,3 +10,4 @@ best_experiments_log.csv
 2025*
 experiment_metrics.csv
 ray_lstm
+ray_lstm_no_driver_behavior
