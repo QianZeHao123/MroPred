@@ -173,3 +173,6 @@ bak/
 
 # do not upload optuna database
 *.db
+
+# do not upload output folder
+output
