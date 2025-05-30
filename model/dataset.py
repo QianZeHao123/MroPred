@@ -11,19 +11,19 @@ class mroRnnDataset(Dataset):
         rnn_features: list,
         rnn_target: list,
         group: str = "train",
-        max_seq_length: int = 10,
+        seq_length: int = 10,
     ):
-        self.max_seq_length = max_seq_length
+        self.seq_length = seq_length
         self.data = self._prepare_data(data_rnn_origin, rnn_features, rnn_target, group)
 
         # Build a list of (id, start_idx, end_idx) for all valid sequences
         self.sequence_indices = []
         for id, (features, _) in self.data.items():
             length = len(features)
-            if length >= max_seq_length:
-                # For each possible starting index to get a sequence of length max_seq_length
-                for start in range(length - max_seq_length + 1):
-                    end = start + max_seq_length
+            if length >= seq_length:
+                # For each possible starting index to get a sequence of length seq_length
+                for start in range(length - seq_length + 1):
+                    end = start + seq_length
                     self.sequence_indices.append((id, start, end))
 
     def __len__(self):
