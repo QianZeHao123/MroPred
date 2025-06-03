@@ -47,6 +47,7 @@ def model_eval(
     batch_size: int,
     # save the results
     result_file="./output/lstm/evaluation_results.csv",
+    purchase_year: int = None,
 ):
     prep_data = preprocess_data(
         file_name=csv_file_name,
@@ -60,6 +61,20 @@ def model_eval(
     )
 
     data = prep_data["data"]
+    original_data = pd.read_csv(csv_file_name, index_col=0, engine="pyarrow")
+    # add purchase_year id select here:
+    if purchase_year is not None and "purchase_yr_nbr" in original_data.columns:
+        selected_ids = original_data.loc[
+            original_data["purchase_yr_nbr"] == purchase_year, "id"
+        ].unique()
+        print(
+            f"Filtering by purchase_year={purchase_year}, selected {len(selected_ids)} ids."
+        )
+        data = data[data["id"].isin(selected_ids)]
+    else:
+        selected_ids = data["id"].unique()
+        print(f"No Purchase Year Selected, selected {len(selected_ids)} ids.")
+
     rnn_features = prep_data["rnn_features"]
     rnn_target = prep_data["rnn_target"]
     col_rnn_origin = ["id"] + rnn_features + rnn_target
