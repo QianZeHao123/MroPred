@@ -37,18 +37,6 @@ def preprocess_data(
     print("The MRO choosen is:", target_mro)
     # --------------------------------------------------
     # choose full mro, maintanance or repair
-    # if maintain_repair_mro == "maintenance":
-    #     data["maintenance"] = data.where(
-    #         (data["mro"] == 1) & (data["service_days"] <= 3), 1, 0
-    #     )
-    #     data["target_mro"] = data["maintenance"]
-    #     print("Target MRO is maintenance.")
-    # elif maintain_repair_mro == "repair":
-    #     data["repair"] = data.where(
-    #         (data["mro"] == 1) & (data["service_days"] > 3), 1, 0
-    #     )
-    #     data["target_mro"] = data["repair"]
-    #     print("Target MRO is Repair.")
     if maintain_repair_mro == "maintenance":
         data["maintenance"] = np.where(
             (data["mro"] == 1) & (data["service_days"] <= 3), 1, 0
