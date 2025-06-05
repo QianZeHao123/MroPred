@@ -169,7 +169,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-bak/
 
 # do not upload optuna database
 *.db
