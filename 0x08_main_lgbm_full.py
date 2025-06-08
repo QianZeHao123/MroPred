@@ -67,6 +67,7 @@ tune_result_storage_path = "./output/lgbm/lgbm_tuning_results_{boosting}"
 result_combine_folder = "./output/lgbm"
 os.makedirs(result_combine_folder, exist_ok=True)
 result_combine_path = os.path.join(result_combine_folder, "lgbm_combined_results.csv")
+
 # ------------------------------------------
 # train control and scaling control parameters
 num_workers = 4
@@ -261,6 +262,18 @@ results_df = pd.DataFrame(
         "Trial Name": trail_name,
         "Data Path": data_lgbm_path,
         "Best Model Path": best_model_path,
+        # ------------------------------------------
+        "csv_file_name": csv_file_name,
+        "target_mro": target_mro,
+        "maintain_repair_mro": maintain_repair_mro,
+        "add_mro_prev": add_mro_prev,
+        "add_purchase_time": add_purchase_time,
+        "add_driver_behavior": add_driver_behavior,
+        "agg_scale": agg_scale,
+        "agg_fun": agg_fun,
+        "time_window": time_window,
+        # ------------------------------------------
+        # metrics record
         "Train Accuracy": [train_results["accuracy"]],
         "Train Precision": [train_results["precision"]],
         "Train Recall": [train_results["recall"]],
@@ -278,3 +291,13 @@ results_df = pd.DataFrame(
         "Test AUC": [test_results["auc"]],
     }
 )
+
+
+results_df.to_csv(
+    result_combine_path,
+    mode="a",
+    index=False,
+    header=not os.path.isfile(result_combine_path),
+)
+
+print(f"Results appended to: {result_combine_path}")
