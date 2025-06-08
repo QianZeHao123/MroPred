@@ -23,7 +23,17 @@ import shutil
 """
 The following part is the important parameter for the LightGBM training
 """
-trail_name = "Our Model GBDT"
+
+# our_model_benchmark = "our_model"
+our_model_benchmark = "benchmark"
+
+# trail_name = "Our Model GBDT"
+# trail_name = "Our Model RF"
+# trail_name = "Our Model DART"
+
+trail_name = "Benchmark GBDT"
+# trail_name = "Benchmark DART"
+# trail_name = "Benchmark RF"
 
 csv_file_name = "./Data/mro_daily_clean.csv"
 target_mro = ["mro"]
@@ -32,7 +42,11 @@ maintain_repair_mro = "full"
 
 add_mro_prev = True
 add_purchase_time = True
-add_driver_behavior = True
+
+# main difference between benchmark and our model
+# add_driver_behavior = True
+add_driver_behavior = False
+
 agg_scale = "weekly"
 agg_fun = ["mean", "sum", "max", "min", "std", "skew"]
 time_window = 8
@@ -44,24 +58,26 @@ learning_rate: float = 0.05
 num_leaves: int = 64
 max_depth: int = 8
 is_unbalance: bool = True
+
 # boosting could be "gbdt", "rf" (random forest) and "dart"
 boosting: str = "gbdt"
-
+# boosting: str = "rf"
+# boosting: str = "dart"
 
 # ------------------------------------------
 # data record folder
-data_lgbm_file_name = f"data_lgbm_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as{agg_scale}_tw{time_window}.gzip"
-data_lgbm_path = os.path.join("./Data", data_lgbm_file_name)
+data_lgbm_file_name = f"data_lgbm_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as_{agg_scale}_tw{time_window}.gzip"
+data_lgbm_path = os.path.join(f"./Data/{our_model_benchmark}", data_lgbm_file_name)
 data_lgbm_path = os.path.abspath(data_lgbm_path)
 
 # ------------------------------------------
 # model record folder
-model_name = f"model_lgbm_{boosting}_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as{agg_scale}_tw{time_window}.txt"
-model_output_dir = "./output/lgbm"
-os.makedirs(model_output_dir, exist_ok=True)
-model_path = os.path.join(model_output_dir, model_name)
+# model_name = f"model_lgbm_{boosting}_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as_{agg_scale}_tw{time_window}.txt"
+# model_output_dir = "./output/lgbm"
+# os.makedirs(model_output_dir, exist_ok=True)
+# model_path = os.path.join(model_output_dir, model_name)
 # ------------------------------------------
-tune_result_storage_path = "./output/lgbm/lgbm_tuning_results_{boosting}"
+tune_result_storage_path = f"./output/lgbm/{our_model_benchmark}/lgbm_tuning_results_{boosting}_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as_{agg_scale}_tw{time_window}"
 
 # ------------------------------------------
 result_combine_folder = "./output/lgbm"
@@ -163,19 +179,64 @@ tune_result_storage_path = os.path.abspath(tune_result_storage_path)
 
 
 if __name__ == "__main__":
-    config = {
-        "objective": "binary",
-        "metric": ["binary_logloss", "binary_error", "auc", "average_precision"],
-        "verbose": 1,
-        "is_unbalance": True,
-        # "max_depth": 8,
-        "max_depth": tune.randint(4, 20),
-        "boosting_type": "gbdt",
-        "device_type": "cpu",
-        "num_leaves": tune.randint(10, 1000),
-        "learning_rate": tune.loguniform(1e-8, 1e-1),
-        # "learning_rate": 0.05,
-    }
+    if boosting == "gbdt":
+        config = {
+            "objective": "binary",
+            "metric": ["binary_logloss", "binary_error", "auc", "average_precision"],
+            "verbose": 1,
+            "is_unbalance": True,
+            # "max_depth": 8,
+            "max_depth": tune.randint(4, 20),
+            "boosting_type": boosting,
+            "device_type": "cpu",
+            "num_leaves": tune.randint(10, 1000),
+            "learning_rate": tune.loguniform(1e-8, 1e-1),
+            # "bagging_fraction": tune.uniform(0.01, 0.99),
+            # "bagging_freq": tune.uniform(0.01, 0.99),
+            # "learning_rate": 0.05,
+        }
+    elif boosting == "dart":
+        config = {
+            "objective": "binary",
+            "metric": ["binary_logloss", "binary_error", "auc", "average_precision"],
+            "verbose": 1,
+            "is_unbalance": True,
+            # "max_depth": 8,
+            "max_depth": tune.randint(4, 20),
+            "boosting_type": boosting,
+            "device_type": "cpu",
+            "num_leaves": tune.randint(10, 1000),
+            "learning_rate": tune.loguniform(1e-8, 1e-1),
+        }
+    elif boosting == "rf":
+        config = {
+            "objective": "binary",
+            "metric": ["binary_logloss", "binary_error", "auc", "average_precision"],
+            "verbose": 1,
+            "is_unbalance": True,
+            # "max_depth": 8,
+            "max_depth": tune.randint(4, 20),
+            "boosting_type": boosting,
+            "device_type": "cpu",
+            "num_leaves": tune.randint(10, 1000),
+            "learning_rate": 1,
+            "bagging_fraction": tune.uniform(0.01, 0.99),
+            "bagging_freq": tune.randint(1, 10),
+            "feature_fraction": tune.uniform(0.5, 1.0),
+        }
+    else:
+        config = {
+            "objective": "binary",
+            "metric": ["binary_logloss", "binary_error", "auc", "average_precision"],
+            "verbose": 1,
+            "is_unbalance": True,
+            # "max_depth": 8,
+            "max_depth": tune.randint(4, 20),
+            "boosting_type": "gbdt",
+            "device_type": "cpu",
+            "num_leaves": tune.randint(10, 1000),
+            "learning_rate": tune.loguniform(1e-8, 1e-1),
+        }
 
     tuner = tune.Tuner(
         # train_lgbm,
@@ -259,19 +320,19 @@ test_results = predict_and_eval(booster, X_test, y_test, "Test Set")
 
 results_df = pd.DataFrame(
     {
-        "Trial Name": trail_name,
-        "Data Path": data_lgbm_path,
-        "Best Model Path": best_model_path,
+        "Trial Name": [trail_name],
+        "Data Path": [data_lgbm_path],
+        "Best Model Path": [best_model_path],
         # ------------------------------------------
-        "csv_file_name": csv_file_name,
-        "target_mro": target_mro,
-        "maintain_repair_mro": maintain_repair_mro,
-        "add_mro_prev": add_mro_prev,
-        "add_purchase_time": add_purchase_time,
-        "add_driver_behavior": add_driver_behavior,
-        "agg_scale": agg_scale,
-        "agg_fun": agg_fun,
-        "time_window": time_window,
+        "csv_file_name": [csv_file_name],
+        "target_mro": [target_mro],
+        "maintain_repair_mro": [maintain_repair_mro],
+        "add_mro_prev": [add_mro_prev],
+        "add_purchase_time": [add_purchase_time],
+        "add_driver_behavior": [add_driver_behavior],
+        "agg_scale": [agg_scale],
+        "agg_fun": [agg_fun],
+        "time_window": [time_window],
         # ------------------------------------------
         # metrics record
         "Train Accuracy": [train_results["accuracy"]],
