@@ -9,10 +9,21 @@ def preprocess_data_lgbm(
     add_mro_prev: bool,
     add_purchase_time: bool,
     add_driver_behavior: bool,
-    agg_weeks: int,
+    agg_scale: str,
     agg_fun: list,
     time_window: int = 8,
 ):
+    """
+    file_name: path to the csv file
+    target_mro: a list = ['mro] or items in mro_detail
+    maintain_repair_mro: a string representing the maintenance or repair or all the mro
+    add_mro_prev: if this is True -> add a new column pre_mro = mro(t-1)
+    add_purchase_time: if this is True -> add a column Year_upper / Year_lower
+    add_driver_behavior: if this is True -> add columns for driver behaviors
+    agg_scale: this is a string either 'weekly' or 'monthly'
+    agg_fun: a list of aggregate function
+    time_window: number of previous time periods
+    """
     data = pd.read_csv(file_name, index_col=0, engine="pyarrow")
     print("Load the dataset", file_name, "successfully.")
     # --------------------------------------------------
@@ -51,14 +62,6 @@ def preprocess_data_lgbm(
     else:
         print("No need to know the maintenance or repair.")
         print("Use the Target MRO.")
-    # add previous mro
-    # if add_mro_prev:
-    #     data.sort_values(by=["id", "yr_nbr", "week_nbr"], inplace=True)
-    #     data["mro_prev"] = data.groupby("id")["mro"].shift(1)
-    #     mro_prev = ["mro_prev"]
-    # else:
-    #     mro_prev = []
-    # print("Add Previous MRO:", add_mro_prev)
     # --------------------------------------------------
     # dealing with purchase time
     if add_purchase_time:
@@ -148,12 +151,16 @@ def preprocess_data_lgbm(
     if add_purchase_time:
         agg_rules["purchase_time"] = "first"
     # --------------------------------------------------
-    # week aggregate
-    data["group_week"] = (data["week_nbr"] - 1) // agg_weeks
-    print("Aggregate the data into", agg_weeks, "week.")
-    # --------------------------------------------------
+    # group aggregated by 'week' or 'month'
+    if agg_scale == "weekly":
+        agg_scale_column = "week_nbr"
+    elif agg_scale == "monthly":
+        agg_scale_column = "mth_nbr"
+    else:
+        print("Not choose the aggregation scale, use weekly as default.")
+        agg_scale_column = "week_nbr"
 
-    data = data.groupby(["id", "yr_nbr", "group_week"]).agg(agg_rules)
+    data = data.groupby(["id", "yr_nbr", agg_scale_column]).agg(agg_rules)
     # --------------------------------------------------
     data.reset_index(inplace=True)
 
@@ -183,11 +190,6 @@ def preprocess_data_lgbm(
     ]
     # --------------------------------------------------
     # build the time series
-    # for i in range(1, time_window + 1):
-    #     for time_series_column in time_series_columns:
-    #         data[f"{time_series_column}_{i}"] = data.groupby("id")[
-    #             time_series_column
-    #         ].transform(lambda x: x.shift(i))
     shift_cols = data[["id"] + time_series_columns]
     for i in range(1, time_window + 1):
         shifted = (
@@ -203,7 +205,8 @@ def preprocess_data_lgbm(
     print("Add Previous MRO:", add_mro_prev)
 
     data.fillna(0, inplace=True)
-    data = data.drop(["yr_nbr", "group_week"], axis=1)
+
+    data = data.drop(["yr_nbr", agg_scale_column], axis=1)
     data = data.drop(time_series_columns, axis=1)
 
     for col in data.select_dtypes(include="object").columns:
