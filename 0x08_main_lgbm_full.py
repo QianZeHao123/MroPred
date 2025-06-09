@@ -23,18 +23,80 @@ import shutil
 """
 The following part is the important parameter for the LightGBM training
 """
-
+# ------------------------------------------
 # our_model_benchmark = "our_model"
 our_model_benchmark = "benchmark"
-
+# ------------------------------------------
 # trail_name = "Our Model GBDT"
 # trail_name = "Our Model RF"
 # trail_name = "Our Model DART"
 
-trail_name = "Benchmark GBDT"
+# trail_name = "Benchmark GBDT"
 # trail_name = "Benchmark DART"
 # trail_name = "Benchmark RF"
 
+# trail_name = "Our Model GBDT -- 4 week"
+# trail_name = "Our Model RF -- 4 week"
+# trail_name = "Our Model DART -- 4 week"
+
+# trail_name = "Benchmark GBDT -- 4 week"
+# trail_name = "Benchmark DART -- 4 week"
+# trail_name = "Benchmark RF -- 4 week"
+
+# trail_name = "Our Model GBDT -- 12 week"
+# trail_name = "Our Model RF -- 12 week"
+# trail_name = "Our Model DART -- 12 week"
+
+# trail_name = "Benchmark GBDT -- 12 week"
+# trail_name = "Benchmark DART -- 12 week"
+# trail_name = "Benchmark RF -- 12 week"
+
+# trail_name = "Our Model GBDT -- 1 month"
+# trail_name = "Our Model RF -- 1 month"
+# trail_name = "Our Model DART -- 1 month"
+
+# trail_name = "Benchmark GBDT -- 1 month"
+# trail_name = "Benchmark DART -- 1 month"
+# trail_name = "Benchmark RF -- 1 month"
+
+# trail_name = "Our Model GBDT -- 2 month"
+# trail_name = "Our Model RF -- 2 month"
+# trail_name = "Our Model DART -- 2 month"
+
+# trail_name = "Benchmark GBDT -- 2 month"
+# trail_name = "Benchmark DART -- 2 month"
+# trail_name = "Benchmark RF -- 2 month"
+
+# trail_name = "Our Model GBDT -- 3 month"
+# trail_name = "Our Model RF -- 3 month"
+# trail_name = "Our Model DART -- 3 month"
+
+# trail_name = "Benchmark GBDT -- 3 month"
+# trail_name = "Benchmark DART -- 3 month"
+trail_name = "Benchmark RF -- 3 month"
+# ------------------------------------------
+# main difference between benchmark and our model
+# add_driver_behavior = True
+add_driver_behavior = False
+# ------------------------------------------
+# time_window = 8
+# time_window = 4
+# time_window = 12
+
+# time_window = 1
+# time_window = 2
+time_window = 3
+
+# agg_scale = "weekly"
+agg_scale = "monthly"
+
+# ------------------------------------------
+# boosting could be "gbdt", "rf" (random forest) and "dart"
+# boosting: str = "gbdt"
+boosting: str = "rf"
+# boosting: str = "dart"
+
+# ------------------------------------------
 csv_file_name = "./Data/mro_daily_clean.csv"
 target_mro = ["mro"]
 
@@ -43,13 +105,7 @@ maintain_repair_mro = "full"
 add_mro_prev = True
 add_purchase_time = True
 
-# main difference between benchmark and our model
-# add_driver_behavior = True
-add_driver_behavior = False
-
-agg_scale = "weekly"
 agg_fun = ["mean", "sum", "max", "min", "std", "skew"]
-time_window = 8
 
 # ------------------------------------------
 # LightGBM Parameters
@@ -59,12 +115,7 @@ num_leaves: int = 64
 max_depth: int = 8
 is_unbalance: bool = True
 
-# boosting could be "gbdt", "rf" (random forest) and "dart"
-boosting: str = "gbdt"
-# boosting: str = "rf"
-# boosting: str = "dart"
 
-# ------------------------------------------
 # data record folder
 data_lgbm_file_name = f"data_lgbm_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as_{agg_scale}_tw{time_window}.gzip"
 data_lgbm_path = os.path.join(f"./Data/{our_model_benchmark}", data_lgbm_file_name)
@@ -72,11 +123,6 @@ data_lgbm_path = os.path.abspath(data_lgbm_path)
 
 # ------------------------------------------
 # model record folder
-# model_name = f"model_lgbm_{boosting}_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as_{agg_scale}_tw{time_window}.txt"
-# model_output_dir = "./output/lgbm"
-# os.makedirs(model_output_dir, exist_ok=True)
-# model_path = os.path.join(model_output_dir, model_name)
-# ------------------------------------------
 tune_result_storage_path = f"./output/lgbm/{our_model_benchmark}/lgbm_tuning_results_{boosting}_db{int(add_driver_behavior)}_mp{int(add_mro_prev)}_pt{int(add_purchase_time)}_as_{agg_scale}_tw{time_window}"
 
 # ------------------------------------------
@@ -207,6 +253,9 @@ if __name__ == "__main__":
             "device_type": "cpu",
             "num_leaves": tune.randint(10, 1000),
             "learning_rate": tune.loguniform(1e-8, 1e-1),
+            # "bagging_fraction": tune.uniform(0.01, 0.99),
+            # "bagging_freq": tune.randint(1, 10),
+            # "feature_fraction": tune.uniform(0.5, 1.0),
         }
     elif boosting == "rf":
         config = {
@@ -255,7 +304,7 @@ if __name__ == "__main__":
             metric="auc",
             mode="max",
             scheduler=ASHAScheduler(),
-            num_samples=20,
+            num_samples=5,
         ),
         run_config=tune.RunConfig(
             name="lgbm_tuning_experiment",
