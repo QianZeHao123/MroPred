@@ -15,7 +15,7 @@ def preprocess_data_lgbm(
 ):
     """
     file_name: path to the csv file
-    target_mro: a list = ['mro] or items in mro_detail
+    target_mro: a list = ['mro'] or items in mro_detail
     maintain_repair_mro: a string representing the maintenance or repair or all the mro
     add_mro_prev: if this is True -> add a new column pre_mro = mro(t-1)
     add_purchase_time: if this is True -> add a column Year_upper / Year_lower
